@@ -179,8 +179,6 @@ async function departmentMigration() {
       type: department.type,
       periodYear: 2024,
       description: department.description,
-      createdAt: new Date(department.createdAt),
-      updatedAt: new Date(department.updatedAt),
     })),
   });
 

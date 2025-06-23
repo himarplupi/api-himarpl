@@ -7,14 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:push": "npx prisma db push",
-    "db:pull": "npx prisma db pull",
-    "postinstall": "npx prisma generate"
+    "postinstall": "npx prisma generate",
+    "db:push": "npx prisma db push"
   },
   "dependencies": {
+    "@libsql/client": "^0.8.1",
     "@paralleldrive/cuid2": "^2.2.2",
-    "@prisma/adapter-libsql": "^6.7.0",
-    "@prisma/client": "^6.7.0",
+    "@prisma/adapter-libsql": "^6.10.1",
+    "@prisma/client": "^6.10.1",
     "@t3-oss/env-nextjs": "^0.13.4",
     "@types/swagger-ui-dist": "^3.30.5",
     "@upstash/ratelimit": "^2.0.5",
@@ -36,7 +36,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.3.1",
     "neat-csv": "^7.0.0",
-    "prisma": "^6.7.0",
+    "prisma": "^6.10.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
