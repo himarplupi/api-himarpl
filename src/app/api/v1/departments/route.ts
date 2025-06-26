@@ -3,6 +3,9 @@ import { type NextRequest } from "next/server";
 import { ipAddress } from "@vercel/functions";
 import { db } from "@/server/db";
 import { ratelimit } from "@/server/ratelimit";
+import { departments, periods, programs } from "@/server/db/schema";
+import { alias } from "drizzle-orm/sqlite-core";
+import { eq, and, like, sql } from "drizzle-orm";
 
 /**
  * @swagger
@@ -44,6 +47,9 @@ import { ratelimit } from "@/server/ratelimit";
 export async function GET(request: NextRequest) {
   try {
     const ip = ipAddress(request) as string;
+    const department = alias(departments, "departments");
+    const period = alias(periods, "period");
+    const program = alias(programs, "program");
 
     const { success, reset } = await ratelimit.limit(ip);
 
@@ -80,8 +86,7 @@ export async function GET(request: NextRequest) {
     const year = yearParam ? Number(yearParam) : undefined;
     const acronym = searchParams.get("acronym")?.toLowerCase() ?? "";
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const filters: any = {};
+    const filters = [];
 
     if (type) {
       const validTypes = ["be", "dp"];
@@ -104,60 +109,95 @@ export async function GET(request: NextRequest) {
           }
         );
       }
-      filters.type = type.toUpperCase();
+      filters.push(eq(departments.type, type.toUpperCase()));
     }
 
     if (year !== undefined && !isNaN(year)) {
-      filters.periodYear = year;
+      filters.push(eq(departments.periodYear, year));
     }
 
     if (acronym) {
-      filters.acronym = {
-        contains: acronym,
-      };
+      filters.push(like(departments.acronym, `%${acronym}%`));
     }
 
-    const [departments, total] = await Promise.all([
-      db.department.findMany({
-        where: filters,
-        select: {
-          id: true,
-          name: true,
-          acronym: true,
-          image: true,
-          description: true,
-          type: true,
-          periodYear: true,
+    const whereClause = filters.length > 0 ? and(...filters) : undefined;
+
+    const [flatResult, countResult] = await Promise.all([
+      db
+        .select({
+          id: department.id,
+          name: department.name,
+          acronym: department.acronym,
+          image: department.image,
+          description: department.description,
+          type: department.type,
+          periodYear: department.periodYear,
           period: {
-            select: {
-              id: true,
-              year: true,
-              name: true,
-            },
+            id: period.id,
+            year: period.year,
+            name: period.name,
           },
           programs: {
-            select: {
-              id: true,
-              content: true,
-            },
+            id: program.id,
+            content: program.content,
           },
-        },
-        orderBy: {
-          acronym: "asc",
-        },
-        skip,
-        take: limit,
-      }),
-      db.department.count({
-        where: filters,
-      }),
+        })
+        .from(department)
+        .leftJoin(period, eq(department.periodYear, period.year))
+        .leftJoin(program, eq(department.id, program.departmentId))
+        .where(whereClause)
+        .orderBy(department.acronym)
+        .offset(skip)
+        .limit(limit),
+
+      db
+        .select({
+          count: sql`COUNT(*)`,
+        })
+        .from(department)
+        .where(whereClause),
     ]);
 
+    const departmentsGroup = Object.values(
+      flatResult.reduce((acc, row) => {
+        if (!acc[row.id]) {
+          acc[row.id] = {
+            id: row.id,
+            name: row.name,
+            acronym: row.acronym,
+            image: row.image,
+            description: row.description,
+            type: row.type,
+            periodYear: row.periodYear,
+            period: row.period
+              ? {
+                  id: row.period.id,
+                  year: row.period.year,
+                  name: row.period.name,
+                }
+              : null,
+            programs: [],
+          };
+        }
+
+        if (row.programs) {
+          if (row.programs.id && row.programs.content) {
+            acc[row.id].programs.push({
+              id: row.programs.id,
+              content: row.programs.content,
+            });
+          }
+        }
+        return acc;
+      }, {} as Record<string, any>)
+    );
+
+    const total = Number(countResult[0].count);
     const totalPages = Math.ceil(total / limit);
 
     return new Response(
       JSON.stringify({
-        data: departments,
+        data: departmentsGroup,
         timestamp: new Date().toISOString(),
         code: "SUCCESS",
         metadata: {
