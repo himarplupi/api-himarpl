@@ -17,6 +17,21 @@ import { eq, and, like, sql } from "drizzle-orm";
  *     description: Returns department data filtered by type (be or dp), period year, and optional acronym
  *     parameters:
  *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
  *         name: type
  *         required: false
  *         schema:
