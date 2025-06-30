@@ -175,10 +175,6 @@ export const getApiDocs = async () => {
               acronym: {
                 type: "string",
               },
-              periodYear: {
-                type: "integer",
-                example: 2024,
-              },
               image: {
                 type: "string",
                 nullable: true,
@@ -191,6 +187,10 @@ export const getApiDocs = async () => {
               type: {
                 type: "string",
                 example: "BE",
+              },
+              periodYear: {
+                type: "integer",
+                example: 2024,
               },
               period: {
                 type: "array",
