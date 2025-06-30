@@ -3,6 +3,8 @@ import { type NextRequest } from "next/server";
 import { ipAddress } from "@vercel/functions";
 import { db } from "@/server/db";
 import { ratelimit } from "@/server/ratelimit";
+import { posts, postToPostTag, postTags, users } from "@/server/db/schema";
+import { eq, sql, and, desc, asc } from "drizzle-orm";
 
 /**
  * @swagger
@@ -86,95 +88,96 @@ export async function GET(request: NextRequest) {
     // Calculate skip for pagination
     const skip = (page - 1) * limit;
 
-    const [posts, total] = await Promise.all([
-      db.post.findMany({
-        where: {
-          PostToPostTag: {
-            some: {
-              post_tags: {
-                title: "berita",
-              },
-            },
-          },
-          title: {
-            contains: search,
-          },
-          publishedAt: {
-            not: null,
-          },
-        },
-        select: {
-          id: true,
-          title: true,
-          metaTitle: true,
-          slug: true,
-          content: true,
-          image: true,
-          publishedAt: true,
-          createdAt: true,
-          updatedAt: true,
-          author: {
-            select: {
-              id: true,
-              name: true,
-              username: true,
-              image: true,
-            },
-          },
-          PostToPostTag: {
-            select: {
-              post_tags: {
-                select: {
-                  title: true,
-                  slug: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: {
-          publishedAt: order,
-        },
-        skip,
-        take: limit,
-      }),
-      db.post.count({
-        where: {
-          PostToPostTag: {
-            some: {
-              post_tags: {
-                title: "berita",
-              },
-            },
-          },
-          title: {
-            contains: search,
-          },
-          publishedAt: {
-            not: null,
-          },
-        },
-      }),
+    const filters = [
+      eq(postTags.title, "berita"),
+      sql`${posts.publishedAt} IS NOT NULL`,
+    ];
+
+    if (search.length > 0) {
+      filters.push(sql`LOWER(${posts.title}) LIKE LOWER(${`%${search}%`})`);
+    }
+
+    const [rawPosts, totalResult] = await Promise.all([
+      db
+        .select({
+          id: posts.id,
+          title: posts.title,
+          metaTitle: posts.metaTitle,
+          slug: posts.slug,
+          content: posts.content,
+          image: posts.image,
+          publishedAt: posts.publishedAt,
+          createdAt: posts.createdAt,
+          updatedAt: posts.updatedAt,
+          authorId: posts.authorId,
+          authorName: users.name,
+          authorUsername: users.username,
+          authorImage: users.image,
+          postTagTitle: postTags.title,
+          postTagSlug: postTags.slug,
+        })
+        .from(posts)
+        .leftJoin(users, eq(posts.authorId, users.id))
+        .leftJoin(postToPostTag, eq(posts.id, postToPostTag.postId))
+        .leftJoin(postTags, eq(postToPostTag.postTagId, postTags.id))
+        .where(and(...filters))
+        .orderBy(
+          order === "asc" ? asc(posts.publishedAt) : desc(posts.publishedAt)
+        )
+        .offset(skip)
+        .limit(limit),
+
+      db
+        .select({
+          count: sql`COUNT(*)`,
+        })
+        .from(posts)
+        .leftJoin(postToPostTag, eq(posts.id, postToPostTag.postId))
+        .leftJoin(postTags, eq(postToPostTag.postTagId, postTags.id))
+        .where(and(...filters)),
     ]);
 
-    // Calculate total pages
+    // Calculate total pages and total result
+    const total = Number(totalResult[0]?.count ?? 0);
     const totalPages = Math.ceil(total / limit);
 
-    // Mapped the PostToPostTag to postTags
-    const mappedPosts = posts.map((post) => {
-      const postTags = post.PostToPostTag.map((postTag) => postTag.post_tags);
+    const newsGroup = Object.values(
+      rawPosts.reduce((acc, row) => {
+        if (!acc[row.id]) {
+          acc[row.id] = {
+            id: row.id,
+            title: row.title,
+            metaTitle: row.metaTitle,
+            slug: row.slug,
+            content: row.content,
+            image: row.image,
+            publishedAt: row.publishedAt,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+            author: {
+              id: row.authorId,
+              name: row.authorName,
+              username: row.authorUsername,
+              image: row.authorImage,
+            },
+            postTags: [],
+          };
+        }
 
-      // @ts-expect-error - delete PostToPostTag
-      delete post.PostToPostTag;
-      return {
-        ...post,
-        postTags,
-      };
-    });
+        if (row.postTagTitle && row.postTagSlug) {
+          acc[row.id].postTags.push({
+            title: row.postTagTitle,
+            slug: row.postTagSlug,
+          });
+        }
+        return acc;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      }, {} as Record<string, any>)
+    );
 
     return new Response(
       JSON.stringify({
-        data: mappedPosts,
+        data: newsGroup,
         timestamp: new Date().toISOString(),
         code: "SUCCESS",
         metadata: {

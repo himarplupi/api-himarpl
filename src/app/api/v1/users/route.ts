@@ -5,6 +5,17 @@ import { db } from "@/server/db";
 import { ratelimit } from "@/server/ratelimit";
 import { parseCommaSeparatedString, toIntEachItems } from "@/lib/utils";
 
+import { eq, inArray, and, asc, desc, sql } from "drizzle-orm";
+import {
+  users,
+  departments,
+  periods,
+  positions,
+  departmentToUser,
+  periodToUser,
+  positionToUser,
+} from "@/server/db/schema";
+
 /**
  * @swagger
  * /api/v1/users:
@@ -121,96 +132,116 @@ export async function GET(request: NextRequest) {
       searchParams.get("positionNames") ?? ""
     );
 
-    const conditions = [];
+    const filters = [];
 
     if (periodYears.length > 0) {
-      conditions.push({
-        periods: {
-          some: {
-            year: {
-              in: periodYears,
-            },
-          },
-        },
-      });
+      filters.push(inArray(periods.year, periodYears));
     }
 
     if (departmentIds.length > 0) {
-      conditions.push({
-        departments: {
-          some: {
-            id: {
-              in: departmentIds,
-            },
-          },
-        },
-      });
+      filters.push(inArray(departments.id, departmentIds));
     }
 
     if (positionNames.length > 0) {
-      conditions.push({
-        positions: {
-          some: {
-            name: {
-              in: positionNames,
-            },
-          },
-        },
-      });
+      filters.push(inArray(positions.name, positionNames));
     }
 
-    const filters = conditions.length > 0 ? { AND: conditions } : undefined;
+    const rawUsers = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        username: users.username,
+        image: users.image,
+        bio: users.bio,
+        departmentId: departments.id,
+        departmentName: departments.name,
+        departmentAcronym: departments.acronym,
+        departmentPeriodYear: departments.periodYear,
+        departmentImage: departments.image,
+        periodId: periods.id,
+        periodYear: periods.year,
+        periodName: periods.name,
+        positionId: positions.id,
+        positionName: positions.name,
+        positionDepartmentId: positions.departmentId,
+      })
+      .from(users)
+      .leftJoin(departmentToUser, eq(users.id, departmentToUser.userId))
+      .leftJoin(departments, eq(departmentToUser.departmentId, departments.id))
+      .leftJoin(positionToUser, eq(users.id, positionToUser.userId))
+      .leftJoin(positions, eq(positionToUser.positionId, positions.id))
+      .leftJoin(periodToUser, eq(users.id, periodToUser.userId))
+      .leftJoin(periods, eq(periodToUser.periodId, periods.id))
+      .where(filters.length > 0 ? and(...filters) : undefined)
+      .orderBy(order === "asc" ? asc(users[orderBy]) : desc(users[orderBy]))
+      .offset(skip)
+      .limit(limit);
 
-    const [users, total] = await Promise.all([
-      db.user.findMany({
-        where: filters,
-        take: limit,
-        skip,
-        orderBy: {
-          [orderBy]: order,
-        },
-        select: {
-          id: true,
-          name: true,
-          username: true,
-          image: true,
-          bio: true,
-          departments: {
-            select: {
-              id: true,
-              name: true,
-              acronym: true,
-              periodYear: true,
-              image: true,
-            },
-          },
-          periods: {
-            select: {
-              id: true,
-              year: true,
-              name: true,
-            },
-          },
-          positions: {
-            select: {
-              id: true,
-              name: true,
-              departmentId: true,
-            },
-          },
-        },
-      }),
-      db.user.count({
-        where: filters,
-      }),
-    ]);
+    const countResult = await db
+      .select({
+        count: sql<number>`COUNT(DISTINCT ${users.id})`,
+      })
+      .from(users)
+      .leftJoin(departmentToUser, eq(users.id, departmentToUser.userId))
+      .leftJoin(departments, eq(departmentToUser.departmentId, departments.id))
+      .leftJoin(positionToUser, eq(users.id, positionToUser.userId))
+      .leftJoin(positions, eq(positionToUser.positionId, positions.id))
+      .leftJoin(periodToUser, eq(users.id, periodToUser.userId))
+      .leftJoin(periods, eq(periodToUser.periodId, periods.id))
+      .where(filters.length > 0 ? and(...filters) : undefined);
 
     // Calculate total pages
+    const total = countResult[0]?.count ?? 0;
     const totalPages = Math.ceil(total / limit);
+
+    const usersGroup = Object.values(
+      rawUsers.reduce((acc, row) => {
+        if (!acc[row.id]) {
+          acc[row.id] = {
+            id: row.id,
+            name: row.name,
+            username: row.username,
+            image: row.image,
+            bio: row.bio,
+            departments: [],
+            periods: [],
+            positions: [],
+          };
+        }
+
+        if (row.departmentId) {
+          acc[row.id].departments.push({
+            id: row.departmentId,
+            name: row.departmentName,
+            acronym: row.departmentAcronym,
+            periodYear: row.departmentPeriodYear,
+            image: row.departmentImage,
+          });
+        }
+
+        if (row.periodId) {
+          acc[row.id].periods.push({
+            id: row.periodId,
+            year: row.periodYear,
+            name: row.periodName,
+          });
+        }
+
+        if (row.positionId) {
+          acc[row.id].positions.push({
+            id: row.positionId,
+            name: row.positionName,
+            departmentId: row.positionDepartmentId,
+          });
+        }
+        return acc;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      }, {} as Record<string, any>)
+    );
 
     return new Response(
       JSON.stringify({
-        data: users,
+        data: usersGroup,
         timestamp: new Date().toISOString(),
         code: "SUCCESS",
         metadata: {
