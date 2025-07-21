@@ -187,7 +187,7 @@ async function departmentMigration() {
   }
 }
 
-async function postMigration() {
+async function postsMigration() {
   console.log("\n\nPOSTS MIGRATION STARTED\n\n");
 
   const userIds = await db
