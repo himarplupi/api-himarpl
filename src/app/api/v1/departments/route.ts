@@ -5,7 +5,7 @@ import { db } from "@/server/db";
 import { ratelimit } from "@/server/ratelimit";
 import { departments, periods, programs } from "@/server/db/schema";
 import { alias } from "drizzle-orm/sqlite-core";
-import { eq, and, like, sql } from "drizzle-orm";
+import { eq, and, like, sql, inArray } from "drizzle-orm";
 
 /**
  * @swagger
@@ -137,6 +137,18 @@ export async function GET(request: NextRequest) {
 
     const whereClause = filters.length > 0 ? and(...filters) : undefined;
 
+    const departmentIds = await db
+      .select({
+        id: department.id,
+      })
+      .from(department)
+      .where(whereClause)
+      .orderBy(department.acronym)
+      .offset(skip)
+      .limit(limit);
+
+    const ids = departmentIds.map((d) => d.id);
+
     const [flatResult, countResult] = await Promise.all([
       db
         .select({
@@ -160,10 +172,8 @@ export async function GET(request: NextRequest) {
         .from(department)
         .leftJoin(period, eq(department.periodYear, period.year))
         .leftJoin(program, eq(department.id, program.departmentId))
-        .where(whereClause)
-        .orderBy(department.acronym)
-        .offset(skip)
-        .limit(limit),
+        .where(inArray(department.id, ids))
+        .orderBy(department.acronym),
 
       db
         .select({
