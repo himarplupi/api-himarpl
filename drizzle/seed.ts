@@ -21,7 +21,7 @@ import { createId } from "@paralleldrive/cuid2";
 async function main() {
   await departmentMigration();
   await generatePositions();
-  await postMigration();
+  await postsMigration();
   await userMigration();
 }
 
@@ -187,7 +187,7 @@ async function departmentMigration() {
   }
 }
 
-async function postMigration() {
+async function postsMigration() {
   console.log("\n\nPOSTS MIGRATION STARTED\n\n");
 
   const userIds = await db

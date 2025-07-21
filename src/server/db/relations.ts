@@ -99,22 +99,22 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
 
 export const postToPostTagRelations = relations(postToPostTag, ({ one }) => ({
   post: one(posts, {
-    fields: [postToPostTag.a],
+    fields: [postToPostTag.postId],
     references: [posts.id],
   }),
   postTag: one(postTags, {
-    fields: [postToPostTag.b],
+    fields: [postToPostTag.postTagId],
     references: [postTags.id],
   }),
 }));
 
 export const positionToUserRelations = relations(positionToUser, ({ one }) => ({
   user: one(users, {
-    fields: [positionToUser.b],
+    fields: [positionToUser.userId],
     references: [users.id],
   }),
   position: one(positions, {
-    fields: [positionToUser.a],
+    fields: [positionToUser.positionId],
     references: [positions.id],
   }),
 }));
@@ -123,11 +123,11 @@ export const departmentToUserRelations = relations(
   departmentToUser,
   ({ one }) => ({
     user: one(users, {
-      fields: [departmentToUser.b],
+      fields: [departmentToUser.userId],
       references: [users.id],
     }),
     department: one(departments, {
-      fields: [departmentToUser.a],
+      fields: [departmentToUser.departmentId],
       references: [departments.id],
     }),
   })
@@ -135,11 +135,11 @@ export const departmentToUserRelations = relations(
 
 export const periodToUserRelations = relations(periodToUser, ({ one }) => ({
   user: one(users, {
-    fields: [periodToUser.b],
+    fields: [periodToUser.userId],
     references: [users.id],
   }),
   period: one(periods, {
-    fields: [periodToUser.a],
+    fields: [periodToUser.periodId],
     references: [periods.id],
   }),
 }));
