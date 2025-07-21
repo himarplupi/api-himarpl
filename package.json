@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
+    "postinstall": "vite build",
     "start": "next start",
     "lint": "next lint",
     "db:push": "npx drizzle-kit push",
