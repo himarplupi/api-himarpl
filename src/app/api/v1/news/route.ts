@@ -78,20 +78,14 @@ export async function GET(request: NextRequest) {
 
     // Parse query parameters
     const page = Math.max(1, Number(searchParams.get("page")) ?? 1);
-    const limit = Math.min(
-      50,
-      Math.max(1, Number(searchParams.get("limit") ?? 10))
-    );
+    const limit = Math.min(50, Math.max(1, Number(searchParams.get("limit") ?? 10)));
     const order = (searchParams.get("order") as "asc" | "desc") ?? "desc";
     const search = searchParams.get("search") ?? "";
 
     // Calculate skip for pagination
     const skip = (page - 1) * limit;
 
-    const filters = [
-      eq(postTags.title, "berita"),
-      sql`${posts.publishedAt} IS NOT NULL`,
-    ];
+    const filters = [eq(postTags.title, "berita"), sql`${posts.publishedAt} IS NOT NULL`];
 
     if (search.length > 0) {
       filters.push(sql`LOWER(${posts.title}) LIKE LOWER(${`%${search}%`})`);
@@ -106,6 +100,7 @@ export async function GET(request: NextRequest) {
           slug: posts.slug,
           content: posts.content,
           image: posts.image,
+          link: posts.link,
           publishedAt: posts.publishedAt,
           createdAt: posts.createdAt,
           updatedAt: posts.updatedAt,
@@ -121,9 +116,7 @@ export async function GET(request: NextRequest) {
         .leftJoin(postToPostTag, eq(posts.id, postToPostTag.postId))
         .leftJoin(postTags, eq(postToPostTag.postTagId, postTags.id))
         .where(and(...filters))
-        .orderBy(
-          order === "asc" ? asc(posts.publishedAt) : desc(posts.publishedAt)
-        )
+        .orderBy(order === "asc" ? asc(posts.publishedAt) : desc(posts.publishedAt))
         .offset(skip)
         .limit(limit),
 

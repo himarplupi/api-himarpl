@@ -1,12 +1,4 @@
-import {
-  sqliteTable,
-  uniqueIndex,
-  foreignKey,
-  text,
-  numeric,
-  integer,
-  index,
-} from "drizzle-orm/sqlite-core";
+import { sqliteTable, uniqueIndex, foreignKey, text, numeric, integer, index } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 
@@ -56,6 +48,7 @@ export const posts = sqliteTable(
     content: text().notNull(),
     rawHtml: text().notNull(),
     image: text(),
+    link: text(),
     createdAt: integer("created_at", { mode: "timestamp" })
       .default(sql`(CURRENT_TIMESTAMP)`)
       .notNull(),
@@ -64,9 +57,7 @@ export const posts = sqliteTable(
       .notNull(),
     publishedAt: numeric("published_at"),
   },
-  (table) => [
-    uniqueIndex("posts_author_id_slug_key").on(table.authorId, table.slug),
-  ]
+  (table) => [uniqueIndex("posts_author_id_slug_key").on(table.authorId, table.slug)]
 );
 
 export const programs = sqliteTable("programs", {
@@ -143,10 +134,7 @@ export const periods = sqliteTable(
       .default(sql`(CURRENT_TIMESTAMP)`)
       .notNull(),
   },
-  (table) => [
-    uniqueIndex("periods_year_key").on(table.year),
-    uniqueIndex("periods_name_key").on(table.name),
-  ]
+  (table) => [uniqueIndex("periods_year_key").on(table.year), uniqueIndex("periods_name_key").on(table.name)]
 );
 
 export const socialMedias = sqliteTable(
@@ -159,13 +147,7 @@ export const socialMedias = sqliteTable(
     username: text().notNull(),
     url: text().notNull(),
   },
-  (table) => [
-    uniqueIndex("social_medias_user_id_name_username_key").on(
-      table.userId,
-      table.name,
-      table.username
-    ),
-  ]
+  (table) => [uniqueIndex("social_medias_user_id_name_username_key").on(table.userId, table.name, table.username)]
 );
 
 export const users = sqliteTable(
@@ -190,10 +172,7 @@ export const users = sqliteTable(
       .default(sql`(CURRENT_TIMESTAMP)`)
       .notNull(),
   },
-  (table) => [
-    uniqueIndex("users_username_key").on(table.username),
-    uniqueIndex("users_email_key").on(table.email),
-  ]
+  (table) => [uniqueIndex("users_username_key").on(table.username), uniqueIndex("users_email_key").on(table.email)]
 );
 
 export const accounts = sqliteTable(
@@ -217,12 +196,7 @@ export const accounts = sqliteTable(
     idToken: text("id_token"),
     sessionState: text("session_state"),
   },
-  (table) => [
-    uniqueIndex("accounts_provider_provider_account_id_key").on(
-      table.provider,
-      table.providerAccountId
-    ),
-  ]
+  (table) => [uniqueIndex("accounts_provider_provider_account_id_key").on(table.provider, table.providerAccountId)]
 );
 
 export const sessions = sqliteTable(
@@ -248,13 +222,7 @@ export const verificationTokens = sqliteTable(
     token: text().notNull(),
     expires: integer({ mode: "timestamp" }).notNull(),
   },
-  (table) => [
-    uniqueIndex("verification_tokens_identifier_token_key").on(
-      table.identifier,
-      table.token
-    ),
-    uniqueIndex("verification_tokens_token_key").on(table.token),
-  ]
+  (table) => [uniqueIndex("verification_tokens_identifier_token_key").on(table.identifier, table.token), uniqueIndex("verification_tokens_token_key").on(table.token)]
 );
 
 export const postToPostTag = sqliteTable(
@@ -270,10 +238,7 @@ export const postToPostTag = sqliteTable(
         onUpdate: "cascade",
       }),
   },
-  (table) => [
-    uniqueIndex("_PostToPostTag_AB_unique").on(table.postId, table.postTagId),
-    index("post_id_idx").on(table.postId),
-  ]
+  (table) => [uniqueIndex("_PostToPostTag_AB_unique").on(table.postId, table.postTagId), index("post_id_idx").on(table.postId)]
 );
 
 export const positionToUser = sqliteTable(
@@ -289,10 +254,7 @@ export const positionToUser = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade", onUpdate: "cascade" }),
   },
-  (table) => [
-    index("position_id_idx").on(table.positionId),
-    uniqueIndex("_PositionToUser_AB_unique").on(table.positionId, table.userId),
-  ]
+  (table) => [index("position_id_idx").on(table.positionId), uniqueIndex("_PositionToUser_AB_unique").on(table.positionId, table.userId)]
 );
 
 export const departmentToUser = sqliteTable(
@@ -308,13 +270,7 @@ export const departmentToUser = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade", onUpdate: "cascade" }),
   },
-  (table) => [
-    index("department_id_idx").on(table.departmentId),
-    uniqueIndex("_DepartmentToUser_AB_unique").on(
-      table.departmentId,
-      table.userId
-    ),
-  ]
+  (table) => [index("department_id_idx").on(table.departmentId), uniqueIndex("_DepartmentToUser_AB_unique").on(table.departmentId, table.userId)]
 );
 
 export const periodToUser = sqliteTable(
@@ -330,8 +286,5 @@ export const periodToUser = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade", onUpdate: "cascade" }),
   },
-  (table) => [
-    index("period_id_idx").on(table.periodId),
-    uniqueIndex("_PeriodToUser_AB_unique").on(table.periodId, table.userId),
-  ]
+  (table) => [index("period_id_idx").on(table.periodId), uniqueIndex("_PeriodToUser_AB_unique").on(table.periodId, table.userId)]
 );
