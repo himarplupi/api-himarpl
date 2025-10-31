@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
             slug: row.slug,
             content: row.content,
             image: row.image,
-            link: posts.link,
+            link: row.link,
             publishedAt: row.publishedAt,
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
